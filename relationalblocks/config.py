@@ -10,7 +10,7 @@ rising precidence):
 Example: 
 
 [default]
-log_level = debug
+loglevel = DEBUG
 
 [postgresql]
 host = db.example.com
@@ -34,13 +34,13 @@ import configparser
 CONFIG = configparser.ConfigParser()
 found_config = False
 
-INI_NAME = 'blocktime.ini'
+INI_NAME = 'relationalblocks.ini'
 system_conf = os.path.join('/etc', INI_NAME)
 if os.path.isfile(system_conf):
     CONFIG.read(system_conf)
     found_config = True
 
-user_conf = os.path.expanduser(os.path.join('~', '.config', 'blocktime.ini')
+user_conf = os.path.expanduser(os.path.join('~', '.config', 'relationalblocks.ini'))
 if os.path.isfile(user_conf):
     CONFIG.read(user_conf)
     found_config = True
@@ -50,8 +50,16 @@ if found_config is False:
     print("No configuration found", file=sys.stderr)
     sys.exit(1)
 
-logging.basicConfig(stream=sys.stdout, level=CONFIG['default'].get('loglevel'))
-LOGGER = logging.getLogger('blocktime')
+# Log level can be gotten from here: 
+LEVEL = {
+    'CRITICAL': 50,
+    'ERROR':    40,
+    'WARNING':  30,
+    'INFO':     20,
+    'DEBUG':    10
+}
+logging.basicConfig(stream=sys.stdout, level=LEVEL.get(CONFIG['default'].get('loglevel'), 'WARNING'))
+LOGGER = logging.getLogger('relationalblocks')
 
 # Create DSN string for DB
 DSN = "postgresql://%s:%s@%s:%s/%s" % (
@@ -63,7 +71,7 @@ DSN = "postgresql://%s:%s@%s:%s/%s" % (
     )
 
 # Ethereum config
-ETHEREUM_CONFIG = CONFIG.get('ethereum')
+ETHEREUM_CONFIG = CONFIG['ethereum']
 JSONRPC_NODE = None
 if ETHEREUM_CONFIG:
     JSONRPC_NODE = ETHEREUM_CONFIG.get('node', fallback="http://localhost:8545/")
