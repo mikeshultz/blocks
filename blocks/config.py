@@ -4,8 +4,8 @@ config.py handles all configuration
 User configuration should go in an INI file in either of the following(in 
 rising precidence):
 
- - /etc/relationalblocks.ini
- - ~/.config/relationalblocks.ini
+ - /etc/blocks.ini
+ - ~/.config/blocks.ini
 
 Example: 
 
@@ -17,7 +17,7 @@ host = db.example.com
 port = 5432
 user = myuser
 pass = my$ecretPASS
-name = relationblocks
+name = blocks
 
 [ethereum]
 node = http://localhost:8545/
@@ -34,13 +34,13 @@ import configparser
 CONFIG = configparser.ConfigParser()
 found_config = False
 
-INI_NAME = 'relationalblocks.ini'
+INI_NAME = 'blocks.ini'
 system_conf = os.path.join('/etc', INI_NAME)
 if os.path.isfile(system_conf):
     CONFIG.read(system_conf)
     found_config = True
 
-user_conf = os.path.expanduser(os.path.join('~', '.config', 'relationalblocks.ini'))
+user_conf = os.path.expanduser(os.path.join('~', '.config', 'blocks.ini'))
 if os.path.isfile(user_conf):
     CONFIG.read(user_conf)
     found_config = True
@@ -59,7 +59,7 @@ LEVEL = {
     'DEBUG':    10
 }
 logging.basicConfig(stream=sys.stdout, level=LEVEL.get(CONFIG['default'].get('loglevel'), 'WARNING'))
-LOGGER = logging.getLogger('relationalblocks')
+LOGGER = logging.getLogger('blocks')
 
 # Create DSN string for DB
 DSN = "postgresql://%s:%s@%s:%s/%s" % (
@@ -67,7 +67,7 @@ DSN = "postgresql://%s:%s@%s:%s/%s" % (
     CONFIG['postgresql']['pass'],
     CONFIG['postgresql'].get('host', "localhost"),
     CONFIG['postgresql'].get('port', 5432),
-    CONFIG['postgresql'].get('name', "relationalblocks")
+    CONFIG['postgresql'].get('name', "blocks")
     )
 
 # Ethereum config

@@ -5,10 +5,10 @@ from setuptools import setup, find_packages
 __DIR__ = os.path.abspath(os.path.dirname(__file__))
 
 setup(
-    name='relationalblocks',
+    name='blocks',
     version='0.0.1b1',
     description='Service that puts the Ethereum blockchain into PostgreSQL',
-    url='https://github.com/mikeshultz/relationalblocks',
+    url='https://github.com/mikeshultz/blocks',
     author='Mike Shultz',
     author_email='mike@mikeshultz.com',
     classifiers=[
@@ -20,7 +20,7 @@ setup(
     ],
     keywords='ethereum',
     packages=find_packages(exclude=['build', 'dist']),
-    package_data={'': ['README.md', 'relationalblocks/sql/initial.sql']},
+    package_data={'': ['README.md', 'blocks/sql/initial.sql']},
     install_requires=[
         'rawl>=0.1.1b2',
         'Flask>=0.12.2',
@@ -33,7 +33,7 @@ setup(
     ],
     entry_points={
         'console_scripts': [
-            'blockconsumer = relationalblocks.consumer:main'
+            'blockconsumer = blocks.consumer:main'
         ]
     },
 )
