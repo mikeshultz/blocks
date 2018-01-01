@@ -6,7 +6,7 @@ __DIR__ = os.path.abspath(os.path.dirname(__file__))
 
 setup(
     name='blocks',
-    version='0.0.2b1',
+    version='0.0.2b2',
     description='Service that puts the Ethereum blockchain into PostgreSQL',
     url='https://github.com/mikeshultz/blocks',
     author='Mike Shultz',
