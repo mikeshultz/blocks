@@ -3,6 +3,7 @@ import sys
 import time
 import logging
 import random
+import signal
 import threading
 from datetime import datetime
 from eth_utils.encoding import big_endian_to_int
@@ -15,17 +16,23 @@ log = LOGGER.getChild('consumer')
 LOCK_NAME = 'consumer'
 # Create a unique-ish pid for ourselves
 PID = random.randint(0,999)
+MAIN_THREAD = None
 
 
-class StoreBlocks(object):
+class ProcessShutdown(Exception): pass
+
+class StoreBlocks(threading.Thread):
     """ Iterate through all necessary blocks and store them in the DB """
 
     def __init__(self):
+        super(StoreBlocks, self).__init__()
         self.web3 = Web3(HTTPProvider(JSONRPC_NODE))
         self.latest_in_db = 0
         self.latest_on_chain = -1
         self.model = BlockModel(DSN)
         self.tx_model = TransactionModel(DSN)
+
+        self.shutdown = threading.Event()
 
     def get_block(self, blk_no):
         """ Gets a block """
@@ -70,6 +77,11 @@ class StoreBlocks(object):
 
         for block_no in block_range:
 
+            # If we've been told to shutdown...
+            if self.shutdown.is_set():
+                log.info("Shutting down gracefully...")
+                break
+
             blk = self.get_block(block_no)
 
             self.model.insert_dict({
@@ -102,48 +114,62 @@ class StoreBlocks(object):
                     'input': tx['input'],
                     }, commit=True)
 
-    def start(self):
+    def run(self):
         """ Kick off the process """
+
         self.get_meta()
         self.process_blocks()
-
-def worker():
-    """ Create a StoreBlocks thread """
-
-    log.info("Starting block consumer...")
-
-    # Look for a pre-existing lock
-    lock = LockModel(DSN)
-    try:
-        log.info("Trying to get lock '%s' for PID %s" % (LOCK_NAME, PID))
-        res = lock.lock(LOCK_NAME, PID)
-        if res is True:
-            log.info("Successfully got lock '%s' for PID %s" % (LOCK_NAME, PID))
-            store = StoreBlocks()
-            store.start()
-            return True
-        else:
-            log.info("Unable to get lock '%s' for PID %s" % (LOCK_NAME, PID))
-            return False
-    except LockExists as e:
-        log.warning(str(e))
-        return False
 
 def main():
     """ Run the consumer """
 
     log.info("Checking database.")
 
+    startup = True
+    lock = None
+
     create_initial(DSN)
 
-    current_thread = None
+    # Model for lock management
+    lockMod = LockModel(DSN)
 
-    try:
-        while True:
-            if current_thread is None or not current_thread.is_alive():
-                current_thread = threading.Thread(target=worker, daemon=True)
-                current_thread.start()
-            time.sleep(15)
-    except KeyboardInterrupt:
-        # TODO: stop thread
+    def shutdown(signum, frame):
+        log.debug('Caught signal %d. Shutting down...' % signum)
+        if MAIN_THREAD:
+            MAIN_THREAD.shutdown.set()
+            # wait for shutdown
+            while MAIN_THREAD.is_alive():
+                continue
+            lockMod.unlock(LOCK_NAME, PID)
+
+        log.info("Clean shut down. Goodbye.")
         sys.exit(0)
+
+    signal.signal(signal.SIGTERM, shutdown)
+    signal.signal(signal.SIGINT, shutdown)
+
+    MAIN_THREAD = StoreBlocks()
+    MAIN_THREAD.daemon = True
+
+    while lock or startup:
+
+        try:
+            log.info("Trying to get lock '%s' for PID %s" % (LOCK_NAME, PID))
+            lock = lockMod.lock(LOCK_NAME, PID)
+        except LockExists as e:
+            log.warning(str(e))
+
+        # If we have a lock, but thread doesn't exist or died for some reason
+        if lock and (MAIN_THREAD is None or not MAIN_THREAD.is_alive()):
+            log.info("Starting consumer...")
+            MAIN_THREAD.start()
+            startup = False
+
+        # If main thread exists but we don't have a lock, shutdown
+        elif MAIN_THREAD is not None and MAIN_THREAD.is_alive() and not lock:
+            log.info("Lost lock, stopping consumption.")
+            MAIN_THREAD.shutdown.set()
+            lockMod.unlock(LOCK_NAME, PID)
+            startup = True
+
+        time.sleep(15)
