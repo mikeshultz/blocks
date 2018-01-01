@@ -128,6 +128,10 @@ class LockModel(RawlBase):
                 log.warn("Failed to create new lock!")
                 return False
 
+    def unlock(self, name, pid):
+        return self.query("DELETE FROM lock WHERE name = {} AND pid = {};", 
+                          name, pid, commit=True)
+
 def create_initial(DSN: str) -> bool:
     """ If necessary, runs the DDL necessary for the app to function """
 
