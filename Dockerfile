@@ -12,6 +12,7 @@ RUN chown nginx:nginx /var/log/nginx /run/nginx
 COPY . /build/blocks
 COPY conf/nginx.conf /etc/nginx/nginx.conf
 COPY conf/supervisor.conf /etc/supervisord.conf
+COPY --chown=nginx:nginx conf/blocks.ini /etc/blocks.ini
 COPY conf/blocks.supervisor.conf /etc/supervisor/conf.d/blocks.conf
 COPY conf/blocks.uwsgi.ini /etc/uwsgi/blocks.uwsgi.ini
 
