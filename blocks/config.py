@@ -37,11 +37,13 @@ found_config = False
 INI_NAME = 'blocks.ini'
 system_conf = os.path.join('/etc', INI_NAME)
 if os.path.isfile(system_conf):
+    print("Loading configuration from %s" % system_conf)
     CONFIG.read(system_conf)
     found_config = True
 
-user_conf = os.path.expanduser(os.path.join('~', '.config', 'blocks.ini'))
+user_conf = os.path.expanduser(os.path.join('~', '.config', INI_NAME))
 if os.path.isfile(user_conf):
+    print("Loading configuration from %s" % user_conf)
     CONFIG.read(user_conf)
     found_config = True
 
@@ -58,7 +60,11 @@ LEVEL = {
     'INFO':     20,
     'DEBUG':    10
 }
-logging.basicConfig(stream=sys.stdout, level=LEVEL.get(CONFIG['default'].get('loglevel'), 'WARNING'))
+if 'default' in CONFIG:
+    conf_loglevel = CONFIG['default'].get('loglevel')
+else:
+    conf_loglevel = None
+logging.basicConfig(stream=sys.stdout, level=LEVEL.get(conf_loglevel, 'WARNING'))
 LOGGER = logging.getLogger('blocks')
 
 # Create DSN string for DB
