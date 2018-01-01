@@ -6,7 +6,7 @@ __DIR__ = os.path.abspath(os.path.dirname(__file__))
 
 setup(
     name='blocks',
-    version='0.0.1b1',
+    version='0.0.2b1',
     description='Service that puts the Ethereum blockchain into PostgreSQL',
     url='https://github.com/mikeshultz/blocks',
     author='Mike Shultz',
@@ -20,7 +20,7 @@ setup(
     ],
     keywords='ethereum',
     packages=find_packages(exclude=['build', 'dist']),
-    package_data={'': ['README.md', 'blocks/sql/initial.sql']},
+    package_data={'': ['README.md', 'sql/initial.sql']},
     install_requires=[
         'rawl>=0.1.1b2',
         'Flask>=0.12.2',
