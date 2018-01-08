@@ -12,6 +12,7 @@ CREATE TABLE block (
 CREATE INDEX block__block_timestamp ON block (block_timestamp);
 CREATE INDEX block__hash ON block (hash);
 CREATE INDEX block__miner ON block (miner);
+CREATE INDEX block__hash_lower ON block ((lower(hash)));
 
 CREATE TABLE transaction (
     hash varchar(66) PRIMARY KEY,
@@ -27,6 +28,8 @@ CREATE TABLE transaction (
 CREATE INDEX transaction__block_number ON transaction (block_number);
 CREATE INDEX transaction__from_address ON transaction (from_address);
 CREATE INDEX transaction__to_address ON transaction (to_address);
+CREATE INDEX transaction__from_address_lower ON transaction ((lower(from_address)));
+CREATE INDEX transaction__to_address_lower ON transaction ((lower(to_address)));
 
 CREATE TABLE lock (
     lock_id serial PRIMARY KEY,
