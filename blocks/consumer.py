@@ -64,8 +64,8 @@ class StoreBlocks(threading.Thread):
 
         if self.latest_on_chain < self.latest_in_db:
             log.warning("Latest block on chain(%s) should not be less than the \
-                     latest in DB(%s).  This could just be that the node is not \
-                     fully synced.",
+latest in DB(%s).  This could just be that the node is not \
+fully synced.",
                      self.latest_on_chain, self.latest_in_db)
             # Bail
             return
@@ -162,6 +162,8 @@ def main():
         # If we have a lock, but thread doesn't exist or died for some reason
         if lock and (MAIN_THREAD is None or not MAIN_THREAD.is_alive()):
             log.info("Starting consumer...")
+            MAIN_THREAD = StoreBlocks()
+            MAIN_THREAD.daemon = True
             MAIN_THREAD.start()
             startup = False
 
