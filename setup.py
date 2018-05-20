@@ -27,13 +27,24 @@ setup(
         'Flask-JSONRPC>=0.3.1',
         'flask-cors>=3.0.3',
         'uwsgi>=2.0.15',
-        'web3>=3.16.4',
-        'cytoolz>=0.9.0', # Due to a requirement in eth-tester
-        'eth_utils==0.7.3',
+        'hexbytes',
+        'eth-hash==0.1.3', # Bug in 0.1.3 install
+        'web3>=4.2.1',
+        'eth_utils>=1.0.3',
+    ],
+    # Every damned Ethereum python package in PyPi seems afflicted with a pypandoc
+    # related issue.  For some reason, their releases on github work just fine, so
+    # for now, we use these:
+    dependency_links=[
+        'https://github.com/carver/hexbytes/archive/v0.1.0.tar.gz#egg=hexbytes',
+        'https://github.com/ethereum/eth-hash/archive/v0.1.3.tar.gz#egg=eth-hash-0.1.3',
+        'https://github.com/ethereum/eth-account/archive/v0.2.2.tar.gz#egg=eth-account-0.2.2',
+        'https://github.com/ethereum/eth-rlp/archive/v0.1.2.tar.gz#egg=eth-rlp-0.1.2',
     ],
     entry_points={
         'console_scripts': [
-            'blockconsumer = blocks.consumer:main'
+            'blocksapi = blocks:api',
+            'blockconsumer = blocks.consumer:main',
         ]
     },
 )
