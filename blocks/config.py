@@ -70,7 +70,7 @@ LOGGER = logging.getLogger('blocks')
 # Create DSN string for DB
 DSN = "postgresql://%s:%s@%s:%s/%s" % (
     CONFIG['postgresql']['user'],
-    CONFIG['postgresql']['pass'],
+    CONFIG['postgresql'].get('pass'),
     CONFIG['postgresql'].get('host', "localhost"),
     CONFIG['postgresql'].get('port', 5432),
     CONFIG['postgresql'].get('name', "blocks")
