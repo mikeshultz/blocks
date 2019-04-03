@@ -1,4 +1,5 @@
 """ consumer.py is what stuffs the DB """
+import os
 import sys
 import time
 import logging
@@ -26,11 +27,18 @@ class StoreBlocks(threading.Thread):
 
     def __init__(self):
         super(StoreBlocks, self).__init__()
-        self.web3 = Web3(HTTPProvider(JSONRPC_NODE))
+
         self.latest_in_db = 0
         self.latest_on_chain = -1
+
         self.model = BlockModel(DSN)
         self.tx_model = TransactionModel(DSN)
+
+        if os.environ.get('WEB3_INFURA_API_KEY'):
+            from web3.auto.infura import w3 as web3
+            self.web3 = web3
+        else:
+            self.web3 = Web3(HTTPProvider(JSONRPC_NODE))
 
         self.shutdown = threading.Event()
 
