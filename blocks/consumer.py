@@ -2,7 +2,6 @@
 import os
 import sys
 import time
-import logging
 import random
 import signal
 import threading
@@ -16,11 +15,13 @@ log = LOGGER.getChild('consumer')
 
 LOCK_NAME = 'consumer'
 # Create a unique-ish pid for ourselves
-PID = random.randint(0,999)
+PID = random.randint(0, 999)
 MAIN_THREAD = None
 
 
-class ProcessShutdown(Exception): pass
+class ProcessShutdown(Exception):
+    pass
+
 
 class StoreBlocks(threading.Thread):
     """ Iterate through all necessary blocks and store them in the DB """
@@ -73,8 +74,7 @@ class StoreBlocks(threading.Thread):
         if self.latest_on_chain < self.latest_in_db:
             log.warning("Latest block on chain(%s) should not be less than the \
 latest in DB(%s).  This could just be that the node is not \
-fully synced.",
-                     self.latest_on_chain, self.latest_in_db)
+fully synced.", self.latest_on_chain, self.latest_in_db)
             # Bail
             return
         else:
@@ -127,6 +127,7 @@ fully synced.",
 
         self.get_meta()
         self.process_blocks()
+
 
 def main():
     """ Run the consumer """

@@ -1,7 +1,6 @@
 """ Database models and utilities """
 import os
 import sys
-import logging
 import random
 import psycopg2
 from datetime import datetime
@@ -12,15 +11,23 @@ from .config import LOGGER
 log = LOGGER.getChild('db')
 
 
-class InvalidRange(IndexError): pass
-class LockExists(Exception): pass
+class InvalidRange(IndexError):
+    pass
+
+
+class LockExists(Exception):
+    pass
+
 
 class BlockModel(RawlBase):
     def __init__(self, dsn: str):
-        super(BlockModel, self).__init__(dsn, table_name='block', 
+        super(BlockModel, self).__init__(
+            dsn,
+            table_name='block',
             columns=['block_number', 'block_timestamp', 'difficulty', 'hash',
-                     'miner', 'gas_used', 'gas_limit', 'nonce', 'size'], 
-            pk_name='block_number')
+                     'miner', 'gas_used', 'gas_limit', 'nonce', 'size'],
+            pk_name='block_number'
+        )
 
     def get_range(self, start: datetime, end: datetime) -> tuple:
         """ Get a range of blocks from start to end """
@@ -44,12 +51,16 @@ class BlockModel(RawlBase):
         else:
             return 0
 
+
 class TransactionModel(RawlBase):
     def __init__(self, dsn: str):
-        super(TransactionModel, self).__init__(dsn, table_name='transaction', 
+        super(TransactionModel, self).__init__(
+            dsn,
+            table_name='transaction',
             columns=['hash', 'block_number', 'from_address', 'to_address',
                      'value', 'gas_price', 'gas_limit', 'nonce', 'input'],
-            pk_name='hash')
+            pk_name='hash'
+        )
 
     def get_by_address(self, address: str) -> list:
         """ Get a list of transactions for an address """
@@ -73,12 +84,17 @@ class TransactionModel(RawlBase):
         else:
             return 0
 
+
 class LockModel(RawlBase):
     """ Model representing a lock in the DB """
 
     def __init__(self, dsn: str):
-        super(LockModel, self).__init__(dsn, table_name='lock', 
-            columns=['lock_id', 'name', 'updated', 'pid'], pk_name='lock_id')
+        super(LockModel, self).__init__(
+            dsn,
+            table_name='lock',
+            columns=['lock_id', 'name', 'updated', 'pid'],
+            pk_name='lock_id'
+        )
 
         self.lock_id = None
         self.name = None
@@ -106,13 +122,13 @@ class LockModel(RawlBase):
             "UPDATE lock SET updated = now() WHERE lock_id = {};",
             lock_id, commit=True)
 
-    def add_lock(self, name, pid=random.randint(0,999)):
+    def add_lock(self, name, pid=random.randint(0, 999)):
         return self.insert_dict({
             "name": name,
             "pid": pid,
             }, commit=True)
 
-    def lock(self, name, pid=random.randint(0,999)):
+    def lock(self, name, pid=random.randint(0, 999)):
         res = self.check_lock(name)
         if len(res) > 0:
             if res[0].pid != pid:
@@ -129,8 +145,9 @@ class LockModel(RawlBase):
                 return False
 
     def unlock(self, name, pid):
-        return self.query("DELETE FROM lock WHERE name = {} AND pid = {};", 
+        return self.query("DELETE FROM lock WHERE name = {} AND pid = {};",
                           name, pid, commit=True)
+
 
 def create_initial(DSN: str) -> bool:
     """ If necessary, runs the DDL necessary for the app to function """

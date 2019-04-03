@@ -1,13 +1,13 @@
-""" 
-config.py handles all configuration 
+"""
+config.py handles all configuration
 
-User configuration should go in an INI file in either of the following(in 
+User configuration should go in an INI file in either of the following(in
 rising precidence):
 
  - /etc/blocks.ini
  - ~/.config/blocks.ini
 
-Example: 
+Example:
 
 [default]
 loglevel = DEBUG
@@ -52,7 +52,7 @@ if found_config is False:
     print("No configuration found", file=sys.stderr)
     sys.exit(1)
 
-# Log level can be gotten from here: 
+# Log level can be gotten from here:
 LEVEL = {
     'CRITICAL': 50,
     'ERROR':    40,
@@ -60,10 +60,9 @@ LEVEL = {
     'INFO':     20,
     'DEBUG':    10
 }
+conf_loglevel = None
 if 'default' in CONFIG:
     conf_loglevel = CONFIG['default'].get('loglevel')
-else:
-    conf_loglevel = None
 logging.basicConfig(stream=sys.stdout, level=LEVEL.get(conf_loglevel, 'WARNING'))
 LOGGER = logging.getLogger('blocks')
 
@@ -72,7 +71,7 @@ DSN = "postgresql://%s:%s@%s:%s/%s" % (
     CONFIG['postgresql']['user'],
     CONFIG['postgresql'].get('pass'),
     CONFIG['postgresql'].get('host', "localhost"),
-    CONFIG['postgresql'].get('port', 5432),
+    CONFIG['postgresql'].get('port', "5432"),
     CONFIG['postgresql'].get('name', "blocks")
     )
 

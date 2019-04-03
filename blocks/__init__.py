@@ -8,9 +8,11 @@ TODO: Or at least make this health check a little more useful?
 """
 app = Flask(__name__)
 
+
 @app.route('/')
 def hello_world():
     return 'Hello, World!'
+
 
 def api():
     """ Run the debug server """
