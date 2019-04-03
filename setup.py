@@ -28,8 +28,7 @@ setup(
         'flask-cors>=3.0.3',
         'uwsgi>=2.0.15',
         'hexbytes',
-        'eth-hash==0.1.3', # Bug in 0.1.3 install
-        'web3>=4.2.1',
+        'web3>=4.2.1,<5',
         'eth_utils>=1.0.3',
     ],
     # Every damned Ethereum python package in PyPi seems afflicted with a pypandoc
