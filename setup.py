@@ -4,9 +4,17 @@ from setuptools import setup, find_packages
 
 __DIR__ = os.path.abspath(os.path.dirname(__file__))
 
+
+def find_version(*file_paths):
+    version = None
+    with open('VERSION') as _version_file:
+        version = _version_file.read()
+    return version
+
+
 setup(
     name='blocks',
-    version='0.0.3b1',
+    version=find_version(),
     description='Service that puts the Ethereum blockchain into PostgreSQL',
     url='https://github.com/mikeshultz/blocks',
     author='Mike Shultz',
@@ -43,7 +51,8 @@ setup(
     entry_points={
         'console_scripts': [
             'blocksapi = blocks:api',
-            'blockconsumer = blocks.consumer:main',
+            'blockconsumer = blocks.cli:start_block_consumer',
+            'txconsumer = blocks.cli:start_transaction_consumer',
         ]
     },
 )

@@ -16,13 +16,14 @@ CREATE INDEX block__hash_lower ON block ((lower(hash)));
 
 CREATE TABLE transaction (
     hash varchar(66) PRIMARY KEY,
-    block_number integer REFERENCES block(block_number) NOT NULL,
-    from_address varchar(42) NOT NULL,
-    to_address varchar(42) NOT NULL,
-    value numeric NOT NULL,
-    gas_price numeric NOT NULL,
-    gas_limit integer NOT NULL,
-    nonce integer NOT NULL,
+    dirty boolean DEFAULT true NOT NULL,
+    block_number integer REFERENCES block(block_number),
+    from_address varchar(42),
+    to_address varchar(42),
+    value numeric,
+    gas_price numeric,
+    gas_limit integer,
+    nonce integer,
     input varchar
 );
 CREATE INDEX transaction__block_number ON transaction (block_number);

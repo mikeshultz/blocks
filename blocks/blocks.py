@@ -1,26 +1,15 @@
 """ consumer.py is what stuffs the DB """
 import os
-import sys
-import time
 import random
-import signal
 import threading
 from datetime import datetime
 from eth_utils.encoding import big_endian_to_int
+from eth_utils.hexadecimal import encode_hex
 from .config import DSN, JSONRPC_NODE, LOGGER
-from .db import BlockModel, TransactionModel, LockModel, LockExists, create_initial
+from .db import BlockModel, TransactionModel
 from web3 import Web3, HTTPProvider
 
-log = LOGGER.getChild('consumer')
-
-LOCK_NAME = 'consumer'
-# Create a unique-ish pid for ourselves
-PID = random.randint(0, 999)
-MAIN_THREAD = None
-
-
-class ProcessShutdown(Exception):
-    pass
+log = LOGGER.getChild(__name__)
 
 
 class StoreBlocks(threading.Thread):
@@ -96,7 +85,7 @@ fully synced.", self.latest_on_chain, self.latest_in_db)
                 'block_number': block_no,
                 'block_timestamp': datetime.fromtimestamp(blk['timestamp']),
                 'difficulty': blk['difficulty'],
-                'hash': blk['hash'],
+                'hash': encode_hex(blk['hash']),
                 'miner': blk['miner'],
                 'gas_used': blk['gasUsed'],
                 'gas_limit': blk['gasLimit'],
@@ -108,18 +97,9 @@ fully synced.", self.latest_on_chain, self.latest_in_db)
             log.debug("Block has %s transactions", len(blk['transactions']))
             for txhash in blk['transactions']:
 
-                tx = self.web3.eth.getTransaction(txhash)
-                print(tx)
                 self.tx_model.insert_dict({
-                    'hash': tx['hash'],
-                    'block_number': block_no,
-                    'from_address': tx['from'],
-                    'to_address': tx['to'],
-                    'value': tx['value'],
-                    'gas_price': tx['gasPrice'],
-                    'gas_limit': tx['gas'],
-                    'nonce': tx['nonce'],
-                    'input': tx['input'],
+                    'hash': encode_hex(txhash),
+                    'dirty': True,
                     }, commit=True)
 
     def run(self):
@@ -127,60 +107,3 @@ fully synced.", self.latest_on_chain, self.latest_in_db)
 
         self.get_meta()
         self.process_blocks()
-
-
-def main():
-    """ Run the consumer """
-
-    log.info("Checking database.")
-
-    startup = True
-    lock = None
-
-    create_initial(DSN)
-
-    # Model for lock management
-    lockMod = LockModel(DSN)
-
-    def shutdown(signum, frame):
-        log.debug('Caught signal %d. Shutting down...' % signum)
-        if MAIN_THREAD:
-            MAIN_THREAD.shutdown.set()
-            # wait for shutdown
-            while MAIN_THREAD.is_alive():
-                continue
-            lockMod.unlock(LOCK_NAME, PID)
-
-        log.info("Clean shut down. Goodbye.")
-        sys.exit(0)
-
-    signal.signal(signal.SIGTERM, shutdown)
-    signal.signal(signal.SIGINT, shutdown)
-
-    MAIN_THREAD = StoreBlocks()
-    MAIN_THREAD.daemon = True
-
-    while lock or startup:
-
-        try:
-            log.info("Trying to get lock '%s' for PID %s" % (LOCK_NAME, PID))
-            lock = lockMod.lock(LOCK_NAME, PID)
-        except LockExists as e:
-            log.warning(str(e))
-
-        # If we have a lock, but thread doesn't exist or died for some reason
-        if lock and (MAIN_THREAD is None or not MAIN_THREAD.is_alive()):
-            log.info("Starting consumer...")
-            MAIN_THREAD = StoreBlocks()
-            MAIN_THREAD.daemon = True
-            MAIN_THREAD.start()
-            startup = False
-
-        # If main thread exists but we don't have a lock, shutdown
-        elif MAIN_THREAD is not None and MAIN_THREAD.is_alive() and not lock:
-            log.info("Lost lock, stopping consumption.")
-            MAIN_THREAD.shutdown.set()
-            lockMod.unlock(LOCK_NAME, PID)
-            startup = True
-
-        time.sleep(15)

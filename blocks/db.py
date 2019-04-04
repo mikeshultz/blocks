@@ -7,16 +7,9 @@ from datetime import datetime
 from eth_utils.address import is_address
 from rawl import RawlBase
 from .config import LOGGER
+from .exceptions import InvalidRange, LockExists
 
 log = LOGGER.getChild('db')
-
-
-class InvalidRange(IndexError):
-    pass
-
-
-class LockExists(Exception):
-    pass
 
 
 class BlockModel(RawlBase):
@@ -57,10 +50,22 @@ class TransactionModel(RawlBase):
         super(TransactionModel, self).__init__(
             dsn,
             table_name='transaction',
-            columns=['hash', 'block_number', 'from_address', 'to_address',
-                     'value', 'gas_price', 'gas_limit', 'nonce', 'input'],
+            columns=['hash', 'dirty', 'block_number', 'from_address',
+                     'to_address', 'value', 'gas_price', 'gas_limit', 'nonce',
+                     'input'],
             pk_name='hash'
         )
+
+    def get_random_dirty(self) -> list:
+        """ Get a single dirty transaction """
+
+        result = self.select(
+            "SELECT {} FROM transaction"
+            " WHERE dirty = true"
+            " ORDER BY random() LIMIT 1;",
+            ['hash'])
+
+        return result
 
     def get_by_address(self, address: str) -> list:
         """ Get a list of transactions for an address """

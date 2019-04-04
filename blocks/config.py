@@ -60,11 +60,12 @@ LEVEL = {
     'INFO':     20,
     'DEBUG':    10
 }
-conf_loglevel = None
-if 'default' in CONFIG:
-    conf_loglevel = CONFIG['default'].get('loglevel')
-logging.basicConfig(stream=sys.stdout, level=LEVEL.get(conf_loglevel, 'WARNING'))
-LOGGER = logging.getLogger('blocks')
+conf_loglevel = 'WARNING'
+if 'default' in CONFIG and CONFIG['default'].get('loglevel'):
+    conf_loglevel = CONFIG['default']['loglevel']
+logging.basicConfig(stream=sys.stdout, level=LEVEL.get(conf_loglevel))
+LOGGER = logging.getLogger()
+LOGGER.setLevel(LEVEL.get(conf_loglevel))
 
 # Create DSN string for DB
 DSN = "postgresql://%s:%s@%s:%s/%s" % (
