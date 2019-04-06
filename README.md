@@ -6,6 +6,21 @@ For the insane person who wants the blockchain in a relational database(PostgreS
 
     pip install setup.py
 
+## Configuration
+
+Either entries in an INI file like so, or environmental variables.  The latter takes precidence in
+all cases.
+
+### Environmental Variables
+
+ - LOG_LEVEL
+ - JSONRPC_NODE
+ - PGUSER
+ - PGPASSWORD
+ - PGHOST
+ - PGPORT
+ - PGDATABASE
+
 ## Deploy
 
 ### ECS
