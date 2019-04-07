@@ -147,6 +147,7 @@ class LockModel(RawlBase):
                 return True
             else:
                 log.warn("Failed to create new lock!")
+                log.debug("Expected lock_id, received: {}".format(self.lock_id))
                 return False
 
     def unlock(self, name, pid):
