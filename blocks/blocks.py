@@ -1,13 +1,17 @@
 """ consumer.py is what stuffs the DB """
 import os
-import random
 import threading
-from datetime import datetime
+from time import sleep
+from uuid import uuid4
+from datetime import datetime, timedelta
 from eth_utils.encoding import big_endian_to_int
 from eth_utils.hexadecimal import encode_hex
-from .config import DSN, JSONRPC_NODE, LOGGER
-from .db import BlockModel, TransactionModel
 from web3 import Web3, HTTPProvider
+
+from blocks.config import DSN, JSONRPC_NODE, LOGGER
+from blocks.db import BlockModel, TransactionModel
+from blocks.enums import WorkerType
+from blocks.conductorclient import ConnectionError, ping, job_request, job_submit
 
 log = LOGGER.getChild(__name__)
 
@@ -18,8 +22,10 @@ class StoreBlocks(threading.Thread):
     def __init__(self):
         super(StoreBlocks, self).__init__()
 
+        self.uuid = str(uuid4())
         self.latest_in_db = 0
         self.latest_on_chain = -1
+        self.last_ping = None
 
         self.model = BlockModel(DSN)
         self.tx_model = TransactionModel(DSN)
@@ -60,47 +66,73 @@ class StoreBlocks(threading.Thread):
     def process_blocks(self):
         """ Process the blocks from the chain """
 
-        if self.latest_on_chain < self.latest_in_db:
-            log.warning("Latest block on chain(%s) should not be less than the \
-latest in DB(%s).  This could just be that the node is not \
-fully synced.", self.latest_on_chain, self.latest_in_db)
-            # Bail
-            return
-        else:
-            log.info("Processing blocks %s through %s.",
-                     self.latest_in_db, self.latest_on_chain)
-
-        block_range = range(self.latest_in_db, self.latest_on_chain)
-
-        for block_no in block_range:
+        while True:
 
             # If we've been told to shutdown...
             if self.shutdown.is_set():
                 log.info("Shutting down gracefully...")
                 break
 
-            blk = self.get_block(block_no)
+            if (
+                self.last_ping is None
+                or self.last_ping < datetime.now() - timedelta(seconds=15)
+            ):
+                try:
+                    ping(self.uuid)
 
-            self.model.insert_dict({
-                'block_number': block_no,
-                'block_timestamp': datetime.fromtimestamp(blk['timestamp']),
-                'difficulty': blk['difficulty'],
-                'hash': encode_hex(blk['hash']),
-                'miner': blk['miner'],
-                'gas_used': blk['gasUsed'],
-                'gas_limit': blk['gasLimit'],
-                'nonce': big_endian_to_int(blk['nonce']),
-                'size': blk['size'],
-                }, commit=True)
+                except ConnectionError:
+                    log.warning('Unable to connect to the conductor.')
+                    sleep(3)
+                    continue
 
-            # Insert transactions
-            log.debug("Block has %s transactions", len(blk['transactions']))
-            for txhash in blk['transactions']:
+            job_response = None
 
-                self.tx_model.insert_dict({
-                    'hash': encode_hex(txhash),
-                    'dirty': True,
+            try:
+                job_response = job_request(self.uuid, WorkerType.BLOCK)
+            except ConnectionError:
+                log.error('Failed to connect to the conductor.')
+                sleep(3)
+                continue
+
+            if not job_response or not job_response.get('success'):
+                log.error('Invalid response from conductor')
+                # TODO: Bail after a while?
+                sleep(3)
+                continue
+
+            job = job_response['data']
+
+            for block_no in job['block_numbers']:
+
+                # If we've been told to shutdown...
+                if self.shutdown.is_set():
+                    log.info("Shutting down gracefully...")
+                    break
+
+                blk = self.get_block(block_no)
+
+                self.model.insert_dict({
+                    'block_number': block_no,
+                    'block_timestamp': datetime.fromtimestamp(blk['timestamp']),
+                    'difficulty': blk['difficulty'],
+                    'hash': encode_hex(blk['hash']),
+                    'miner': blk['miner'],
+                    'gas_used': blk['gasUsed'],
+                    'gas_limit': blk['gasLimit'],
+                    'nonce': big_endian_to_int(blk['nonce']),
+                    'size': blk['size'],
                     }, commit=True)
+
+                # Insert transactions
+                log.debug("Block has %s transactions", len(blk['transactions']))
+                for txhash in blk['transactions']:
+
+                    self.tx_model.insert_dict({
+                        'hash': encode_hex(txhash),
+                        'dirty': True,
+                        }, commit=True)
+
+            job_submit(job['job_uuid'])
 
     def run(self):
         """ Kick off the process """

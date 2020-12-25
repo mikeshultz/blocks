@@ -39,6 +39,13 @@ setup(
         'eth-utils<2.0.0,>=1.2.0',
         'web3>=4.2.1,<5',
     ],
+    # pip install -e .[dev]
+    extras_require={
+        'dev': [
+            'flake8>=3.8.4',
+            'mypy>=0.790'
+        ]
+    },
     # Every damned Ethereum python package in PyPi seems afflicted with a pypandoc
     # related issue.  For some reason, their releases on github work just fine, so
     # for now, we use these:
@@ -51,6 +58,7 @@ setup(
     entry_points={
         'console_scripts': [
             'blocksapi = blocks:api',
+            'conductor = blocks.cli:start_conductor',
             'blockconsumer = blocks.cli:start_block_consumer',
             'txconsumer = blocks.cli:start_transaction_consumer',
         ]
