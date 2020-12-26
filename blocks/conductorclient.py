@@ -1,9 +1,10 @@
+import os
 import json
 import requests
 from requests.exceptions import ConnectionError  # noqa: F401
 from urllib.parse import urljoin
 
-CONDUCTOR_BASE_URL = 'http://localhost:3205'
+CONDUCTOR_BASE_URL = os.environ.get('CONDUCTOR_ENDPOINT', 'http://localhost:3205')
 
 
 def get(endpoint):
