@@ -4,6 +4,7 @@ import threading
 from time import sleep
 from uuid import uuid4
 from datetime import datetime, timedelta
+from psycopg2.errors import UniqueViolation
 from eth_utils.encoding import big_endian_to_int
 from eth_utils.hexadecimal import encode_hex
 from web3 import Web3, HTTPProvider
@@ -126,11 +127,15 @@ class StoreBlocks(threading.Thread):
                 # Insert transactions
                 log.debug("Block has %s transactions", len(blk['transactions']))
                 for txhash in blk['transactions']:
-
-                    self.tx_model.insert_dict({
-                        'hash': encode_hex(txhash),
-                        'dirty': True,
-                        }, commit=True)
+                    hex_hash = encode_hex(txhash)
+                    try:
+                        self.tx_model.insert_dict({
+                            'hash': hex_hash,
+                            'dirty': True,
+                            }, commit=True)
+                    except UniqueViolation:
+                        log.debug('Transaction already known: {}'.format(hex_hash))
+                        pass
 
             job_submit(job['job_uuid'])
 
