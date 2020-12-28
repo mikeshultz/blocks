@@ -15,6 +15,8 @@ from blocks.exceptions import InvalidRange, LockExists
 
 log = LOGGER.getChild('db')
 
+MAX_LOCKS = 5
+
 
 class ConsumerModel(RawlBase):
     def __init__(self, dsn: str):
@@ -33,7 +35,7 @@ class ConsumerModel(RawlBase):
 
     def ping(self, uuid):
         return self.query(
-            "UPDATE consumer SET last_seen = now WHERE consumer_uuid = {};",
+            "UPDATE consumer SET last_seen = now() WHERE consumer_uuid = {};",
             uuid, commit=True)
 
 
@@ -102,14 +104,12 @@ class BlockModel(RawlBase):
         count = len(blocks)
 
         if count < 1:
-            print('no block')
             return (False, ["No block"])
 
         elif count > 1:
             raise ValueError('Invalid result, duplicate blocks')
 
         block = blocks[0]
-        print('block:', block)
 
         return validate_conditions([
             (block.block_timestamp is not None, "block_timestamp is missing"),
@@ -142,17 +142,11 @@ class TransactionModel(RawlBase):
     def get_random_dirty(self, limit: int = 1) -> list:
         """ Get a single dirty transaction """
 
-        print('get_random_dirty limit:', limit)
-
-        result = self.select(
+        return self.select(
             "SELECT {} FROM transaction"
             " WHERE dirty = true"
             " ORDER BY random() LIMIT {};",
             ['hash'], limit)
-
-        print('result:', result)
-
-        return result
 
     def get_by_address(self, address: str) -> list:
         """ Get a list of transactions for an address """
@@ -187,14 +181,12 @@ class TransactionModel(RawlBase):
         count = len(transactions)
 
         if count < 1:
-            print('no transaction')
             return (False, ["No transaction"])
 
         elif count > 1:
             raise ValueError('Invalid result, duplicate transactions')
 
         tx = transactions[0]
-        print('tx:', tx)
 
         return validate_conditions([
             (is_256bit_hash(tx.hash), "Transaction hash is invalid"),
@@ -255,9 +247,9 @@ class LockModel(RawlBase):
 
     def lock(self, name, pid=random.randint(0, 999)):
         res = self.check_lock(name)
-        if len(res) > 0:
+        if len(res) >= MAX_LOCKS:
             if res[0].pid != pid:
-                raise LockExists("Lock already exists")
+                raise LockExists("Maximum locks reached")
             return True
         else:
             self.lock_id = self.add_lock(name, pid)

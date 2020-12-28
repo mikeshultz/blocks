@@ -225,4 +225,6 @@ class Conductor:
 
         self.del_job(job_uuid)
 
+        log.debug('Verification succeeded!')
+
         return (True, [])

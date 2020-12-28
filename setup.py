@@ -30,7 +30,7 @@ setup(
     packages=find_packages(exclude=['build', 'dist']),
     package_data={'': ['README.md', 'sql/initial.sql']},
     install_requires=[
-        'rawl>=0.1.1b2',
+        'rawl>=0.3.1',
         'Flask>=0.12.2',
         'Flask-JSONRPC>=0.3.1',
         'flask-cors>=3.0.3',
