@@ -185,6 +185,8 @@ class Conductor:
                 )
             ]
 
+            self.selected_transactions.update(job.transactions)
+
         else:
             log.warning('Unknown worker type')
             return None
