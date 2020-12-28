@@ -234,6 +234,12 @@ class LockModel(RawlBase):
             "SELECT {} FROM lock WHERE pid = {};",
             self.columns, pid)
 
+    def get_active_lock_by_pid(self, pid):
+        return self.select(
+            "SELECT {} FROM lock WHERE pid = {}"
+            " AND updated + interval '1 hour' > now();",
+            self.columns, pid)
+
     def update_lock(self, lock_id):
         return self.query(
             "UPDATE lock SET updated = now() WHERE lock_id = {};",
@@ -246,11 +252,18 @@ class LockModel(RawlBase):
             }, commit=True)
 
     def lock(self, name, pid=random.randint(0, 999)):
+        res = self.get_active_lock_by_pid(pid)
+
+        if len(res) == 1:
+            return True
+
         res = self.check_lock(name)
+
         if len(res) >= MAX_LOCKS:
             if res[0].pid != pid:
                 raise LockExists("Maximum locks reached")
             return True
+
         else:
             self.lock_id = self.add_lock(name, pid)
             if self.lock_id:
