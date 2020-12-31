@@ -69,6 +69,9 @@ class StoreBlocks(threading.Thread):
 
         while True:
 
+            # TODO: Remove.  Just want to know we're living
+            log.debug('thread mainloop')
+
             # If we've been told to shutdown...
             if self.shutdown.is_set():
                 log.info("Shutting down gracefully...")
@@ -89,6 +92,7 @@ class StoreBlocks(threading.Thread):
             job_response = None
 
             try:
+                log.info('Requesting new job for worker {}'.format(self.uuid))
                 job_response = job_request(self.uuid, WorkerType.BLOCK)
             except ConnectionError:
                 log.error('Failed to connect to the conductor.')
@@ -113,7 +117,7 @@ class StoreBlocks(threading.Thread):
                 blk = self.get_block(block_no)
 
                 try:
-
+                    log.info('Inserting block {}'.format(block_no))
                     self.model.insert_dict({
                         'block_number': block_no,
                         'block_timestamp': datetime.fromtimestamp(blk['timestamp']),
@@ -133,7 +137,10 @@ class StoreBlocks(threading.Thread):
                 # Insert transactions
                 log.debug("Block has {} transactions".format(len(blk['transactions'])))
                 for txhash in blk['transactions']:
+                    log.info('Inserting tx {}'.format(txhash))
+
                     hex_hash = encode_hex(txhash)
+
                     try:
                         self.tx_model.insert_dict({
                             'hash': hex_hash,
