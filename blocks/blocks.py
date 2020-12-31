@@ -137,9 +137,9 @@ class StoreBlocks(threading.Thread):
                 # Insert transactions
                 log.debug("Block has {} transactions".format(len(blk['transactions'])))
                 for txhash in blk['transactions']:
-                    log.info('Inserting tx {}'.format(txhash))
-
                     hex_hash = encode_hex(txhash)
+
+                    log.info('Inserting tx {}'.format(hex_hash))
 
                     try:
                         self.tx_model.insert_dict({
