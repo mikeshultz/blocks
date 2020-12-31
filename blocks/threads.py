@@ -62,7 +62,11 @@ def start_thread(thread_type):
     while lock or startup:
 
         try:
-            log.info("Trying to get lock '%s' for PID %s" % (lock_name, pid))
+            log.info("Trying to {} lock '{}' for PID {}".format(
+                'maintain' if lock else 'get',
+                lock_name,
+                pid
+            ))
             lock = lockMod.lock(lock_name, pid)
         except LockExists as e:
             log.warning(str(e))
