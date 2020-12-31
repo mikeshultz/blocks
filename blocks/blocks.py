@@ -42,7 +42,7 @@ class StoreBlocks(threading.Thread):
     def get_block(self, blk_no):
         """ Gets a block """
 
-        log.debug("Fetching block %s", blk_no)
+        log.debug("Fetching block {}".format(blk_no))
 
         if not isinstance(blk_no, int):
             raise ValueError("block_no must be an integer")
@@ -58,7 +58,7 @@ class StoreBlocks(threading.Thread):
         res = self.model.get_latest()
 
         if res:
-            log.debug("Latest in DB: %s", res)
+            log.debug("Latest in DB: {}".format(res))
             self.latest_in_db = res
         else:
             log.debug("Nothing in DB")
@@ -128,10 +128,10 @@ class StoreBlocks(threading.Thread):
                 except UniqueViolation:
                     log.warning('Block {} already exists in database'.format(block_no))
                     job_reject(job.get('job_uuid'), 'Block {} already exist in database'.format(block_no))
-                    break
+                    continue
 
                 # Insert transactions
-                log.debug("Block has %s transactions", len(blk['transactions']))
+                log.debug("Block has {} transactions".format(len(blk['transactions'])))
                 for txhash in blk['transactions']:
                     hex_hash = encode_hex(txhash)
                     try:
