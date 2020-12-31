@@ -126,7 +126,7 @@ class StoreBlocks(threading.Thread):
                         'size': blk['size'],
                         }, commit=True)
                 except UniqueViolation:
-                    log.warn('Block {} already exists in database'.format(block_no))
+                    log.warning('Block {} already exists in database'.format(block_no))
                     job_reject(job.get('job_uuid'), 'Block {} already exist in database'.format(block_no))
                     break
 
@@ -140,7 +140,7 @@ class StoreBlocks(threading.Thread):
                             'dirty': True,
                             }, commit=True)
                     except UniqueViolation:
-                        log.debug('Transaction already known: {}'.format(hex_hash))
+                        log.warning('Transaction already known: {}'.format(hex_hash))
                         pass
 
             job_submit(job.get('job_uuid'))
