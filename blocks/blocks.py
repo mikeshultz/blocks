@@ -12,7 +12,7 @@ from web3 import Web3, HTTPProvider
 from blocks.config import DSN, JSONRPC_NODE, LOGGER
 from blocks.db import BlockModel, TransactionModel
 from blocks.enums import WorkerType
-from blocks.conductorclient import ConnectionError, ping, job_request, job_submit
+from blocks.conductorclient import ConnectionError, ping, job_request, job_submit, job_reject
 
 log = LOGGER.getChild(__name__)
 
@@ -112,17 +112,23 @@ class StoreBlocks(threading.Thread):
 
                 blk = self.get_block(block_no)
 
-                self.model.insert_dict({
-                    'block_number': block_no,
-                    'block_timestamp': datetime.fromtimestamp(blk['timestamp']),
-                    'difficulty': blk['difficulty'],
-                    'hash': encode_hex(blk['hash']),
-                    'miner': blk['miner'],
-                    'gas_used': blk['gasUsed'],
-                    'gas_limit': blk['gasLimit'],
-                    'nonce': big_endian_to_int(blk['nonce']),
-                    'size': blk['size'],
-                    }, commit=True)
+                try:
+
+                    self.model.insert_dict({
+                        'block_number': block_no,
+                        'block_timestamp': datetime.fromtimestamp(blk['timestamp']),
+                        'difficulty': blk['difficulty'],
+                        'hash': encode_hex(blk['hash']),
+                        'miner': blk['miner'],
+                        'gas_used': blk['gasUsed'],
+                        'gas_limit': blk['gasLimit'],
+                        'nonce': big_endian_to_int(blk['nonce']),
+                        'size': blk['size'],
+                        }, commit=True)
+                except UniqueViolation:
+                    log.warn('Block {} already exists in database'.format(block_no))
+                    job_reject(job.get('job_uuid'), 'Block {} already exist in database'.format(block_no))
+                    break
 
                 # Insert transactions
                 log.debug("Block has %s transactions", len(blk['transactions']))
@@ -137,7 +143,7 @@ class StoreBlocks(threading.Thread):
                         log.debug('Transaction already known: {}'.format(hex_hash))
                         pass
 
-            job_submit(job['job_uuid'])
+            job_submit(job.get('job_uuid'))
 
     def run(self):
         """ Kick off the process """

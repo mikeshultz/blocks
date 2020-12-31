@@ -41,3 +41,7 @@ def job_request(uuid, worker_type):
 
 def job_submit(job_uuid):
     return post('/job-submit', data={'job_uuid': job_uuid})
+
+
+def job_reject(job_uuid, reason="Rejected"):
+    return post('/job-reject', data={'job_uuid': job_uuid, 'reason': reason})

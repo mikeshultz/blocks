@@ -104,6 +104,27 @@ def job_submit():
     return response_error()
 
 
+@app.route('/job-reject', methods=('POST',))
+def job_reject():
+    req_obj = request.get_json()
+
+    if (
+        req_obj
+        and isinstance(req_obj, dict)
+        and req_obj.get('job_uuid') is not None
+    ):
+        # Remove the job from memory, consumer doesn't want it
+        conductor.del_job(req_obj['job_uuid'])
+
+        if 'reason' in req_obj:
+            # TODO: Do something meaningful with this?
+            log.warn('Job {} rejected due to: {}'.format(req_obj['job_uuid'], req_obj['reason']))
+
+        return response_ok()
+
+    return response_error()
+
+
 def api():
     """ Run the debug server """
     global conductor, block_model, tx_model
