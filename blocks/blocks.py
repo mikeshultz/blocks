@@ -136,19 +136,20 @@ class StoreBlocks(threading.Thread):
 
                 # Insert transactions
                 log.debug("Block has {} transactions".format(len(blk['transactions'])))
-                for txhash in blk['transactions']:
-                    hex_hash = encode_hex(txhash)
+                # TODO: Disabling transaction insertion here for performance reasons
+                # for txhash in blk['transactions']:
+                #     hex_hash = encode_hex(txhash)
 
-                    log.info('Inserting tx {}'.format(hex_hash))
+                #     log.info('Inserting tx {}'.format(hex_hash))
 
-                    try:
-                        self.tx_model.insert_dict({
-                            'hash': hex_hash,
-                            'dirty': True,
-                            }, commit=True)
-                    except UniqueViolation:
-                        log.warning('Transaction already known: {}'.format(hex_hash))
-                        pass
+                #     try:
+                #         self.tx_model.insert_dict({
+                #             'hash': hex_hash,
+                #             'dirty': True,
+                #             }, commit=True)
+                #     except UniqueViolation:
+                #         log.warning('Transaction already known: {}'.format(hex_hash))
+                #         pass
 
             job_submit(job.get('job_uuid'))
 
