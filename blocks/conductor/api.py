@@ -125,15 +125,18 @@ def job_reject():
     return response_error()
 
 
-def api():
-    """ Run the debug server """
+def init_flask():
+    """ init the singleton here """
     global conductor, block_model, tx_model
-
-    host = os.environ.get('CONDUCTOR_HOST', '127.0.0.1')
-    port = os.environ.get('CONDUCTOR_PORT', 3205)
 
     conductor = Conductor()
     block_model = BlockModel(DSN)
     tx_model = TransactionModel(DSN)
+
+
+def api():
+    """ Run the debug server """
+    host = os.environ.get('CONDUCTOR_HOST', '127.0.0.1')
+    port = os.environ.get('CONDUCTOR_PORT', 3205)
 
     app.run(host=host, port=port)
