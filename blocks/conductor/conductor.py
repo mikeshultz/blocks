@@ -203,7 +203,7 @@ class Conductor:
             return (False, ["Invalid job UUID"])
 
         if isinstance(job, BlockJob):
-            log.debug('Verifying transcation job...')
+            log.debug('Verifying block job...')
 
             for block_number in job.block_numbers:
                 valid, errors = self.block_model.validate_block(block_number)
