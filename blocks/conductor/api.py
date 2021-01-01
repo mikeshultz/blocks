@@ -129,7 +129,12 @@ def init_flask():
     """ init the singleton here """
     global conductor, block_model, tx_model
 
-    conductor = Conductor()
+    CONDUCTOR_BATCH_SIZE = os.environ.get('CONDUCTOR_BATCH_SIZE')
+
+    if CONDUCTOR_BATCH_SIZE is not None:
+        CONDUCTOR_BATCH_SIZE = int(CONDUCTOR_BATCH_SIZE)
+
+    conductor = Conductor(batch_size=CONDUCTOR_BATCH_SIZE)
     block_model = BlockModel(DSN)
     tx_model = TransactionModel(DSN)
 

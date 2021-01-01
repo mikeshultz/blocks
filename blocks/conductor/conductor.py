@@ -10,7 +10,8 @@ from blocks.utils import del_listf
 from blocks.db import ConsumerModel, BlockModel, TransactionModel
 from blocks.enums import WorkerType
 
-DEFAULT_BATCH_SIZE = 50
+# TODO: Make bigger batch sizes, reduce request load on conductor
+DEFAULT_BATCH_SIZE = 500
 
 log = LOGGER.getChild(__name__)
 
