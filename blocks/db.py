@@ -15,7 +15,7 @@ from blocks.exceptions import InvalidRange, LockExists
 
 log = LOGGER.getChild('db')
 
-MAX_LOCKS = 5
+MAX_LOCKS = 50
 
 
 class ConsumerModel(RawlBase):
