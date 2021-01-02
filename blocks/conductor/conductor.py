@@ -84,9 +84,9 @@ class Conductor:
 
         log.info('Processing block numbers from DB...')
 
-        self.known_block_numbers = set(blocknums)
+        self.known_block_numbers.update(blocknums)
 
-        loaded = len(self.known_block_numbers)
+        loaded = len(blocknums)
 
         log.debug('Loaded {} block numbers'.format(loaded))
 
