@@ -30,12 +30,14 @@ def indexf(iter, func):
 
 def del_list(_list, val):
     idx = index(_list, val)
-    del _list[idx]
+    if idx > -1:
+        del _list[idx]
 
 
 def del_listf(_list, func):
     idx = indexf(_list, func)
-    del _list[idx]
+    if idx > -1:
+        del _list[idx]
 
 
 def validate_conditions(conds: List[Tuple[bool, str]]) -> Tuple[bool, List[str]]:
