@@ -12,6 +12,8 @@ from blocks.enums import WorkerType
 
 # TODO: Make bigger batch sizes, reduce request load on conductor
 DEFAULT_BATCH_SIZE = 500
+# The max amount of block numbers to load from the DB per single query
+LOAD_BATCH_SIZE = 1000000
 
 log = LOGGER.getChild(__name__)
 
@@ -84,13 +86,15 @@ class Conductor:
 
         self.known_block_numbers = set(blocknums)
 
-        log.debug('Loaded {} block numbers'.format(
-            len(self.known_block_numbers)
-        ))
+        loaded = len(self.known_block_numbers)
+
+        log.debug('Loaded {} block numbers'.format(loaded))
+
+        return loaded >= LOAD_BATCH_SIZE
 
     def get_meta(self):
         """ Populate some things we'll need later """
-
+        print('get_meta|get_meta|get_meta|get_meta|get_meta')
         res = self.block_model.get_latest()
 
         if res:
@@ -101,11 +105,21 @@ class Conductor:
 
             log.debug("Latest on chain: %s", self.latest_on_chain)
 
-            log.info('Loading block numbers from DB...')
+            batches = int(self.latest_on_chain / LOAD_BATCH_SIZE) + 1
 
-            self._process_block_nums(
-                self.block_model.get_all_block_numbers()
-            )
+            for i in range(1, batches + 1):
+                end = i * LOAD_BATCH_SIZE
+                start = end - LOAD_BATCH_SIZE
+
+                log.debug('Loading blocks {}-{}'.format(start, end))
+
+                block_numbers = self.block_model.get_block_numbers(
+                    start=start,
+                    end=end,
+                )
+
+                if not self._process_block_nums(block_numbers):
+                    break
         else:
             log.debug("Nothing in DB")
             self.latest_in_db = 0

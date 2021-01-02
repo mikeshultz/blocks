@@ -1,10 +1,11 @@
-from blocks.conductor.api import api
+from blocks.conductor.api import api, init_flask
 from blocks.threads import start_thread
 from blocks.enums import WorkerType
 
 
 def start_conductor():
     """ Startup the conductor """
+    init_flask()
     api()
 
 
