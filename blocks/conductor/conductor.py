@@ -90,7 +90,7 @@ class Conductor:
 
         log.debug('Loaded {} block numbers'.format(loaded))
 
-        return loaded >= LOAD_BATCH_SIZE
+        return loaded > 0
 
     def get_meta(self):
         """ Populate some things we'll need later """
