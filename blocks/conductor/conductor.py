@@ -168,7 +168,13 @@ class Conductor:
                 if len(job.block_numbers) >= self.batch_size:
                     break
 
-            self.selected_block_numbers.update(job.block_numbers)
+            if len(job.block_numbers) > 0:
+                self.selected_block_numbers.update(job.block_numbers)
+            else:
+                # TODO: Don't make this request pointless.
+                self.latest_on_chain = self.web3.eth.blockNumber
+
+                log.warning('No blocks available to add to job.  Updating to block {}'.format(self.latest_on_chain))
 
         elif worker_type == WorkerType.TRANSACTION:
             job = TransactionJob(consumer_uuid=uuid, transactions=[])
