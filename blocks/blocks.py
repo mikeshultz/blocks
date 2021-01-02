@@ -106,6 +106,7 @@ class StoreBlocks(threading.Thread):
                 continue
 
             job = job_response['data']
+            submit = True
 
             for block_no in job['block_numbers']:
 
@@ -132,6 +133,7 @@ class StoreBlocks(threading.Thread):
                 except UniqueViolation:
                     log.warning('Block {} already exists in database'.format(block_no))
                     job_reject(job.get('job_uuid'), 'Block {} already exist in database'.format(block_no))
+                    submit = False
                     break
 
                 # Insert transactions
@@ -151,7 +153,8 @@ class StoreBlocks(threading.Thread):
                 #         log.warning('Transaction already known: {}'.format(hex_hash))
                 #         pass
 
-            job_submit(job.get('job_uuid'))
+            if submit:
+                job_submit(job.get('job_uuid'))
 
     def run(self):
         """ Kick off the process """
