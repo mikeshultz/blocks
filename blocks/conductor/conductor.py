@@ -80,6 +80,8 @@ class Conductor:
         if not blocknums or len(blocknums) < 1:
             return
 
+        log.info('Processing block numbers from DB...')
+
         self.known_block_numbers = set(blocknums)
 
         log.debug('Loaded {} block numbers'.format(
@@ -93,8 +95,13 @@ class Conductor:
 
         if res:
             log.debug("Latest in DB: %s", res)
+
             self.latest_in_db = res
             self.latest_on_chain = self.web3.eth.blockNumber
+
+            log.debug("Latest on chain: %s", self.latest_on_chain)
+
+            log.info('Loading block numbers from DB...')
 
             self._process_block_nums(
                 self.block_model.get_all_block_numbers()
