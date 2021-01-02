@@ -132,7 +132,7 @@ class StoreBlocks(threading.Thread):
                 except UniqueViolation:
                     log.warning('Block {} already exists in database'.format(block_no))
                     job_reject(job.get('job_uuid'), 'Block {} already exist in database'.format(block_no))
-                    continue
+                    break
 
                 # Insert transactions
                 log.debug("Block has {} transactions".format(len(blk['transactions'])))
