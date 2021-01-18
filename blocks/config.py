@@ -91,7 +91,8 @@ LEVEL = {
 conf_loglevel = env_or_ini('LOG_LEVEL', CONFIG, 'default', 'loglevel', 'WARNING')
 logging.basicConfig(stream=sys.stdout, level=LEVEL.get(conf_loglevel))
 LOGGER = logging.getLogger()
-LOGGER.setLevel(LEVEL.get(conf_loglevel))
+LOGGER.setLevel(LEVEL.get(conf_loglevel, 20))
+logging.getLogger('rawl').setLevel(logging.INFO)
 
 """
 

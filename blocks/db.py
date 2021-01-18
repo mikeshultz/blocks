@@ -6,10 +6,47 @@ import psycopg2
 from datetime import datetime
 from eth_utils.address import is_address
 from rawl import RawlBase
-from .config import LOGGER
-from .exceptions import InvalidRange, LockExists
+
+from typing import List, Tuple
+
+from blocks.utils import is_256bit_hash, validate_conditions
+from blocks.config import LOGGER
+from blocks.exceptions import InvalidRange, LockExists
 
 log = LOGGER.getChild('db')
+
+MAX_LOCKS = 50
+
+
+class ConsumerModel(RawlBase):
+    def __init__(self, dsn: str):
+        super(ConsumerModel, self).__init__(
+            dsn,
+            table_name='consumer',
+            columns=['consumer_uuid', 'port', 'address', 'name', 'active'
+                     'last_seen'],
+            pk_name='consumer_uuid'
+        )
+
+    def deactivate(self, uuid):
+        return self.query(
+            "UPDATE consumer SET active = false WHERE consumer_uuid = {};",
+            uuid, commit=True)
+
+    def ping(self, uuid):
+        return self.query(
+            "UPDATE consumer SET last_seen = now() WHERE consumer_uuid = {};",
+            uuid, commit=True)
+
+
+class JobModel(RawlBase):
+    def __init__(self, dsn: str):
+        super(JobModel, self).__init__(
+            dsn,
+            table_name='job',
+            columns=['job_id', 'blocks', 'trasnactions', 'block_range'],
+            pk_name='job_id'
+        )
 
 
 class BlockModel(RawlBase):
@@ -21,6 +58,9 @@ class BlockModel(RawlBase):
                      'miner', 'gas_used', 'gas_limit', 'nonce', 'size'],
             pk_name='block_number'
         )
+
+    def count(self):
+        return self.query("SELECT COUNT(*) FROM block;")[0][0]
 
     def get_range(self, start: datetime, end: datetime) -> tuple:
         """ Get a range of blocks from start to end """
@@ -44,6 +84,69 @@ class BlockModel(RawlBase):
         else:
             return 0
 
+    def get_all_block_numbers(self) -> List[int]:
+        """ Get all block numbers in the DB """
+
+        res = self.query("SELECT block_number FROM block;")
+        if res:
+            return [x[0] for x in res]
+        else:
+            return []
+
+    def get_block_numbers(self, start=0, end=1000000) -> List[int]:
+        """ Get block numbers from the DB within the given range """
+
+        res = self.query(
+            "SELECT block_number FROM block "
+            "WHERE block_number >= {} and block_number < {};",
+            start,
+            end
+        )
+
+        if res:
+            return [x[0] for x in res]
+        else:
+            return []
+
+    def get_blocks(self, start=0, end=1000000) -> List[int]:
+        """ Get blocks from the DB within the given range """
+
+        return self.select(
+            "SELECT {} FROM block "
+            "WHERE block_number >= {} and block_number < {};",
+            self.columns, start, end)
+
+    def validate_block(self, block_number) -> Tuple[bool, List[str]]:
+        """ Validate that a block number exists and that its values generally
+        look correct.
+        """
+        blocks = self.select(
+            "SELECT {} FROM block WHERE block_number = {};",
+            self.columns, block_number)
+
+        count = len(blocks)
+
+        if count < 1:
+            return (False, ["No block"])
+
+        elif count > 1:
+            raise ValueError('Invalid result, duplicate blocks')
+
+        block = blocks[0]
+
+        return validate_conditions([
+            (block.block_timestamp is not None, "block_timestamp is missing"),
+            (block.difficulty is not None, "difficulty missing"),
+            (block.hash is not None, "block hash missing"),
+            (is_256bit_hash(block.hash), "block hash is not a hash"),
+            (block.miner is not None, "miner missing"),
+            (is_address(block.miner), "miner is not an address"),
+            (block.gas_used is not None, "gas_used missing"),
+            (block.gas_limit is not None, "gas_limit missing"),
+            (block.nonce is not None, "nonce missing"),
+            (block.size is not None, "size missing"),
+        ])
+
 
 class TransactionModel(RawlBase):
     def __init__(self, dsn: str):
@@ -56,16 +159,17 @@ class TransactionModel(RawlBase):
             pk_name='hash'
         )
 
-    def get_random_dirty(self) -> list:
+    def count(self):
+        return self.query("SELECT COUNT(*) FROM transaction;")[0][0]
+
+    def get_random_dirty(self, limit: int = 1) -> list:
         """ Get a single dirty transaction """
 
-        result = self.select(
+        return self.select(
             "SELECT {} FROM transaction"
             " WHERE dirty = true"
-            " ORDER BY random() LIMIT 1;",
-            ['hash'])
-
-        return result
+            " ORDER BY random() LIMIT {};",
+            ['hash'], limit)
 
     def get_by_address(self, address: str) -> list:
         """ Get a list of transactions for an address """
@@ -88,6 +192,37 @@ class TransactionModel(RawlBase):
             return res[0][0]
         else:
             return 0
+
+    def validate_transaction(self, tx_hash) -> Tuple[bool, List[str]]:
+        """ Validate that a transactions exists and that its values generally
+        look correct.
+        """
+        transactions = self.select(
+            "SELECT {} FROM transaction WHERE hash = {};",
+            self.columns, tx_hash)
+
+        count = len(transactions)
+
+        if count < 1:
+            return (False, ["No transaction"])
+
+        elif count > 1:
+            raise ValueError('Invalid result, duplicate transactions')
+
+        tx = transactions[0]
+
+        return validate_conditions([
+            (is_256bit_hash(tx.hash), "Transaction hash is invalid"),
+            (tx.dirty is False, "Transaction is marked dirty"),
+            (tx.block_number is not None, "block_number missing"),
+            (is_address(tx.from_address), "from_address is not an address"),
+            (is_address(tx.to_address), "to_address is not an address"),
+            (tx.value is not None, "value missing"),
+            (tx.gas_price is not None, "gas_price missing"),
+            (tx.gas_limit is not None, "gas_limit missing"),
+            (tx.nonce is not None, "nonce missing"),
+            (tx.input is not None, "input missing"),
+        ])
 
 
 class LockModel(RawlBase):
@@ -122,6 +257,12 @@ class LockModel(RawlBase):
             "SELECT {} FROM lock WHERE pid = {};",
             self.columns, pid)
 
+    def get_active_lock_by_pid(self, pid):
+        return self.select(
+            "SELECT {} FROM lock WHERE pid = {}"
+            " AND updated + interval '1 hour' > now();",
+            self.columns, pid)
+
     def update_lock(self, lock_id):
         return self.query(
             "UPDATE lock SET updated = now() WHERE lock_id = {};",
@@ -134,11 +275,18 @@ class LockModel(RawlBase):
             }, commit=True)
 
     def lock(self, name, pid=random.randint(0, 999)):
-        res = self.check_lock(name)
-        if len(res) > 0:
-            if res[0].pid != pid:
-                raise LockExists("Lock already exists")
+        res = self.get_active_lock_by_pid(pid)
+
+        if len(res) == 1:
             return True
+
+        res = self.check_lock(name)
+
+        if len(res) >= MAX_LOCKS:
+            if res[0].pid != pid:
+                raise LockExists("Maximum locks reached")
+            return True
+
         else:
             self.lock_id = self.add_lock(name, pid)
             if self.lock_id:

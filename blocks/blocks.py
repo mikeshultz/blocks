@@ -1,13 +1,18 @@
 """ consumer.py is what stuffs the DB """
 import os
-import random
 import threading
-from datetime import datetime
+from time import sleep
+from uuid import uuid4
+from datetime import datetime, timedelta
+from psycopg2.errors import UniqueViolation
 from eth_utils.encoding import big_endian_to_int
 from eth_utils.hexadecimal import encode_hex
-from .config import DSN, JSONRPC_NODE, LOGGER
-from .db import BlockModel, TransactionModel
 from web3 import Web3, HTTPProvider
+
+from blocks.config import DSN, JSONRPC_NODE, LOGGER
+from blocks.db import BlockModel, TransactionModel
+from blocks.enums import WorkerType
+from blocks.conductorclient import ConnectionError, ping, job_request, job_submit, job_reject
 
 log = LOGGER.getChild(__name__)
 
@@ -18,8 +23,10 @@ class StoreBlocks(threading.Thread):
     def __init__(self):
         super(StoreBlocks, self).__init__()
 
+        self.uuid = str(uuid4())
         self.latest_in_db = 0
         self.latest_on_chain = -1
+        self.last_ping = None
 
         self.model = BlockModel(DSN)
         self.tx_model = TransactionModel(DSN)
@@ -35,7 +42,7 @@ class StoreBlocks(threading.Thread):
     def get_block(self, blk_no):
         """ Gets a block """
 
-        log.debug("Fetching block %s", blk_no)
+        log.debug("Fetching block {}".format(blk_no))
 
         if not isinstance(blk_no, int):
             raise ValueError("block_no must be an integer")
@@ -51,7 +58,7 @@ class StoreBlocks(threading.Thread):
         res = self.model.get_latest()
 
         if res:
-            log.debug("Latest in DB: %s", res)
+            log.debug("Latest in DB: {}".format(res))
             self.latest_in_db = res
         else:
             log.debug("Nothing in DB")
@@ -60,47 +67,94 @@ class StoreBlocks(threading.Thread):
     def process_blocks(self):
         """ Process the blocks from the chain """
 
-        if self.latest_on_chain < self.latest_in_db:
-            log.warning("Latest block on chain(%s) should not be less than the \
-latest in DB(%s).  This could just be that the node is not \
-fully synced.", self.latest_on_chain, self.latest_in_db)
-            # Bail
-            return
-        else:
-            log.info("Processing blocks %s through %s.",
-                     self.latest_in_db, self.latest_on_chain)
+        while True:
 
-        block_range = range(self.latest_in_db, self.latest_on_chain)
-
-        for block_no in block_range:
+            # TODO: Remove.  Just want to know we're living
+            log.debug('thread mainloop')
 
             # If we've been told to shutdown...
             if self.shutdown.is_set():
                 log.info("Shutting down gracefully...")
                 break
 
-            blk = self.get_block(block_no)
+            if (
+                self.last_ping is None
+                or self.last_ping < datetime.now() - timedelta(seconds=15)
+            ):
+                try:
+                    ping(self.uuid)
 
-            self.model.insert_dict({
-                'block_number': block_no,
-                'block_timestamp': datetime.fromtimestamp(blk['timestamp']),
-                'difficulty': blk['difficulty'],
-                'hash': encode_hex(blk['hash']),
-                'miner': blk['miner'],
-                'gas_used': blk['gasUsed'],
-                'gas_limit': blk['gasLimit'],
-                'nonce': big_endian_to_int(blk['nonce']),
-                'size': blk['size'],
-                }, commit=True)
+                except ConnectionError:
+                    log.warning('Unable to connect to the conductor.')
+                    sleep(3)
+                    continue
 
-            # Insert transactions
-            log.debug("Block has %s transactions", len(blk['transactions']))
-            for txhash in blk['transactions']:
+            job_response = None
 
-                self.tx_model.insert_dict({
-                    'hash': encode_hex(txhash),
-                    'dirty': True,
-                    }, commit=True)
+            try:
+                log.info('Requesting new job for worker {}'.format(self.uuid))
+                job_response = job_request(self.uuid, WorkerType.BLOCK)
+            except ConnectionError:
+                log.error('Failed to connect to the conductor.')
+                sleep(3)
+                continue
+
+            if not job_response or not job_response.get('success'):
+                log.error('Invalid response from conductor')
+                # TODO: Bail after a while?
+                sleep(3)
+                continue
+
+            job = job_response['data']
+            submit = True
+
+            for block_no in job['block_numbers']:
+
+                # If we've been told to shutdown...
+                if self.shutdown.is_set():
+                    log.info("Shutting down gracefully...")
+                    break
+
+                blk = self.get_block(block_no)
+
+                try:
+                    log.info('Inserting block {}'.format(block_no))
+                    self.model.insert_dict({
+                        'block_number': block_no,
+                        'block_timestamp': datetime.fromtimestamp(blk['timestamp']),
+                        'difficulty': blk['difficulty'],
+                        'hash': encode_hex(blk['hash']),
+                        'miner': blk['miner'],
+                        'gas_used': blk['gasUsed'],
+                        'gas_limit': blk['gasLimit'],
+                        'nonce': big_endian_to_int(blk['nonce']),
+                        'size': blk['size'],
+                        }, commit=True)
+                except UniqueViolation:
+                    log.warning('Block {} already exists in database'.format(block_no))
+                    job_reject(job.get('job_uuid'), 'Block {} already exist in database'.format(block_no))
+                    submit = False
+                    break
+
+                # Insert transactions
+                log.debug("Block has {} transactions".format(len(blk['transactions'])))
+                # TODO: Disabling transaction insertion here for performance reasons
+                # for txhash in blk['transactions']:
+                #     hex_hash = encode_hex(txhash)
+
+                #     log.info('Inserting tx {}'.format(hex_hash))
+
+                #     try:
+                #         self.tx_model.insert_dict({
+                #             'hash': hex_hash,
+                #             'dirty': True,
+                #             }, commit=True)
+                #     except UniqueViolation:
+                #         log.warning('Transaction already known: {}'.format(hex_hash))
+                #         pass
+
+            if submit:
+                job_submit(job.get('job_uuid'))
 
     def run(self):
         """ Kick off the process """

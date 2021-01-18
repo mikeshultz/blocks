@@ -1,3 +1,22 @@
+CREATE TABLE consumer (
+    consumer_uuid uuid PRIMARY KEY,
+    active boolean NOT NULL,
+    last_seen timestamp DEFAULT now(),
+    port integer NOT NULL,
+    address inet NOT NULL,
+    name varchar NOT NULL
+);
+CREATE INDEX consumer__consumer_uuid ON consumer (consumer_uuid);
+CREATE INDEX consumer__active ON consumer (active);
+
+CREATE TABLE job (
+    job_id serial PRIMARY KEY,
+    blocks boolean DEFAULT true NOT NULL,
+    trasnactions boolean DEFAULT true NOT NULL,
+    block_range numrange DEFAULT null
+);
+CREATE INDEX job__job_id ON job (job_id);
+
 CREATE TABLE block (
     block_number serial PRIMARY KEY,
     block_timestamp timestamp without time zone NOT NULL,

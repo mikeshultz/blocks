@@ -4,31 +4,28 @@ import time
 import random
 import signal
 from enum import Enum
-from .db import LockModel, LockExists, create_initial
-from .config import DSN, LOGGER
-from .blocks import StoreBlocks
-from .transactions import StoreTransactions
+
+from blocks.db import LockModel, LockExists, create_initial
+from blocks.config import DSN, LOGGER
+from blocks.blocks import StoreBlocks
+from blocks.transactions import StoreTransactions
+from blocks.enums import WorkerType
 
 log = LOGGER.getChild('blocks')
-
-
-class ThreadType(Enum):
-    BLOCK = 'block-consumer'
-    TRANSACTION = 'transaction-consumer'
 
 
 def start_thread(thread_type):
     """ Run the consumer """
 
-    if not isinstance(thread_type, ThreadType):
-        raise ValueError("Invalid ThreadType")
+    if not isinstance(thread_type, WorkerType):
+        raise ValueError("Invalid WorkerType")
 
     log.info("Checking database.")
 
     ThreadClass = None
-    if thread_type == ThreadType.BLOCK:
+    if thread_type == WorkerType.BLOCK:
         ThreadClass = StoreBlocks
-    elif thread_type == ThreadType.TRANSACTION:
+    elif thread_type == WorkerType.TRANSACTION:
         ThreadClass = StoreTransactions
     else:
         raise Exception("Unknown thread type")
@@ -37,7 +34,7 @@ def start_thread(thread_type):
     main_thread = None
     lock_name = str(thread_type)
     lock = None
-    pid = random.randint(0, 999)
+    pid = random.randint(0, 9999)
 
     create_initial(DSN)
 
@@ -65,22 +62,27 @@ def start_thread(thread_type):
     while lock or startup:
 
         try:
-            log.info("Trying to get lock '%s' for PID %s" % (lock_name, pid))
+            log.info("Trying to {} lock '{}' for PID {}".format(
+                'maintain' if lock else 'get',
+                lock_name,
+                pid
+            ))
             lock = lockMod.lock(lock_name, pid)
         except LockExists as e:
             log.warning(str(e))
 
         # If we have a lock, but thread doesn't exist or died for some reason
         if lock and (main_thread is None or not main_thread.is_alive()):
-            log.info("Starting consumer...")
+            log.info("Starting thread...")
             main_thread = ThreadClass()
             main_thread.daemon = True
             main_thread.start()
             startup = False
+            log.info("Thread started.")
 
         # If main thread exists but we don't have a lock, shutdown
         elif main_thread is not None and main_thread.is_alive() and not lock:
-            log.info("Lost lock, stopping consumption.")
+            log.info("Lost lock, stopping thread.")
             main_thread.shutdown.set()
             lockMod.unlock(lock_name, pid)
             startup = True
