@@ -9,6 +9,7 @@ from blocks.db import LockModel, LockExists, create_initial
 from blocks.config import DSN, LOGGER
 from blocks.blocks import StoreBlocks
 from blocks.transactions import StoreTransactions
+from blocks.txprimer import TransactionPriming
 from blocks.enums import WorkerType
 
 log = LOGGER.getChild('blocks')
@@ -25,7 +26,9 @@ def start_thread(thread_type):
     ThreadClass = None
     if thread_type == WorkerType.BLOCK:
         ThreadClass = StoreBlocks
-    elif thread_type == WorkerType.TRANSACTION:
+    elif thread_type == WorkerType.TX_PRIME:
+        ThreadClass = TransactionPriming
+    elif thread_type == WorkerType.TX_DETAIL:
         ThreadClass = StoreTransactions
     else:
         raise Exception("Unknown thread type")

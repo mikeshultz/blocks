@@ -3,7 +3,8 @@ from enum import Enum
 
 class WorkerType(Enum):
     BLOCK = 'BLOCK'
-    TRANSACTION = 'TRANSACTION'
+    TX_PRIME = 'TX_PRIME'
+    TX_DETAIL = 'TX_DETAIL'
 
     def __str__(self):
         return self.name

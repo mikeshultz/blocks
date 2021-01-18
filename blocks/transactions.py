@@ -78,7 +78,7 @@ class StoreTransactions(threading.Thread):
             job_response = None
 
             try:
-                job_response = job_request(self.uuid, WorkerType.TRANSACTION)
+                job_response = job_request(self.uuid, WorkerType.TX_DETAIL)
             except ConnectionError:
                 log.error('Failed to connect to the conductor.')
                 sleep(3)

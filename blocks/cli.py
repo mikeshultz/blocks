@@ -5,8 +5,6 @@ from blocks.conductor.api import api, init_flask
 from blocks.threads import start_thread
 from blocks.enums import WorkerType
 
-from blocks.analysis.blocktime import blocktime_anomalies
-
 ANALYSIS_UTILITIES = ['blocktime']
 analysis_modules = {}
 
@@ -22,9 +20,14 @@ def start_block_consumer():
     start_thread(WorkerType.BLOCK)
 
 
+def start_transaction_primer():
+    """ Startup the transaction primer """
+    start_thread(WorkerType.TX_PRIME)
+
+
 def start_transaction_consumer():
-    """ Startup the block consumer """
-    start_thread(WorkerType.TRANSACTION)
+    """ Startup the transaction consumer """
+    start_thread(WorkerType.TX_DETAIL)
 
 
 def analysis():
