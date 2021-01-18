@@ -61,6 +61,7 @@ setup(
             'conductor = blocks.cli:start_conductor',
             'blockconsumer = blocks.cli:start_block_consumer',
             'txconsumer = blocks.cli:start_transaction_consumer',
+            'banalysis = blocks.cli:analysis',
         ]
     },
 )

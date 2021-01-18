@@ -108,6 +108,14 @@ class BlockModel(RawlBase):
         else:
             return []
 
+    def get_blocks(self, start=0, end=1000000) -> List[int]:
+        """ Get blocks from the DB within the given range """
+
+        return self.select(
+            "SELECT {} FROM block "
+            "WHERE block_number >= {} and block_number < {};",
+            self.columns, start, end)
+
     def validate_block(self, block_number) -> Tuple[bool, List[str]]:
         """ Validate that a block number exists and that its values generally
         look correct.
