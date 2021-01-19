@@ -109,6 +109,21 @@ class BlockModel(RawlBase):
         else:
             return []
 
+    def get_block_meta(self, start=0, end=1000000) -> List[int]:
+        """ Get meta for block numbers from the DB within the given range """
+
+        res = self.query(
+            "SELECT block_number, primed FROM block "
+            "WHERE block_number >= {} and block_number < {};",
+            start,
+            end
+        )
+
+        if res:
+            return res
+        else:
+            return []
+
     def get_blocks(self, start=0, end=1000000) -> List[int]:
         """ Get blocks from the DB within the given range """
 

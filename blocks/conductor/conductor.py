@@ -100,17 +100,22 @@ class Conductor:
 
         self.status = True
 
-    def _process_block_nums(self, blocknums):
-        if not blocknums or len(blocknums) < 1:
+    def _process_block_meta(self, block_meta):
+        if not block_meta or len(block_meta) < 1:
             return
 
         log.info('Processing block numbers from DB...')
 
+        blocknums = [b[0] for b in block_meta]
+        blocknums_primed = [b[0] for b in block_meta if b[1]]
+
         self.known_block_numbers.update(blocknums)
+        self.known_primed_blocks.update(blocknums_primed)
 
         loaded = len(blocknums)
+        loaded_primed = len(blocknums_primed)
 
-        log.debug('Loaded {} block numbers'.format(loaded))
+        log.debug('Loaded {} block numbers ({} primed)'.format(loaded, loaded_primed))
 
         return loaded > 0
 
@@ -135,13 +140,14 @@ class Conductor:
 
                 log.debug('Loading blocks {}-{}'.format(start, end))
 
-                block_numbers = self.block_model.get_block_numbers(
+                block_meta = self.block_model.get_block_meta(
                     start=start,
                     end=end,
                 )
 
-                if not self._process_block_nums(block_numbers):
+                if not self._process_block_meta(block_meta):
                     break
+
         else:
             log.debug("Nothing in DB")
             self.latest_in_db = 0
@@ -292,6 +298,11 @@ class Conductor:
 
                 if valid is not True:
                     return (valid, errors)
+
+            # So our exlusion list doesn't grow infinitely, move blocks from
+            # selected to known.
+            self.known_primed_blocks.update(job.block_numbers)
+            self.selected_blocks_to_prime.difference_update(job.block_numbers)
 
         elif isinstance(job, TransactionDetailJob):
             log.debug('Verifying transcation job...')
