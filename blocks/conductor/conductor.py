@@ -1,5 +1,6 @@
 """ consumer.py is what stuffs the DB """
 import json
+from math import floor
 from uuid import uuid4
 from web3 import Web3, HTTPProvider
 
@@ -12,6 +13,11 @@ from blocks.enums import WorkerType
 
 # TODO: Make bigger batch sizes, reduce request load on conductor
 DEFAULT_BATCH_SIZE = 500
+
+# Batch size divisor to be used for transaction batches.
+# BATCH_SIZE / DIVISOR = TX_BATCH_SIZE
+TX_BATCH_DIVISOR = 100
+
 # The max amount of block numbers to load from the DB per single query
 LOAD_BATCH_SIZE = 1000000
 
@@ -37,7 +43,21 @@ class BlockJob(JSONSerialized):
         }
 
 
-class TransactionJob(JSONSerialized):
+class TransactionPrimingJob(JSONSerialized):
+    def __init__(self, consumer_uuid, block_numbers):
+        self.job_uuid = str(uuid4())
+        self.consumer_uuid = consumer_uuid
+        self.block_numbers = block_numbers
+
+    def to_dict(self):
+        return {
+            'job_uuid': str(self.job_uuid),
+            'consumer_uuid': str(self.consumer_uuid),
+            'block_numbers': self.block_numbers,
+        }
+
+
+class TransactionDetailJob(JSONSerialized):
     def __init__(self, consumer_uuid, transactions):
         self.job_uuid = str(uuid4())
         self.consumer_uuid = consumer_uuid
@@ -51,7 +71,7 @@ class TransactionJob(JSONSerialized):
         }
 
 
-JobType = Union[BlockJob, TransactionJob]
+JobType = Union[BlockJob, TransactionPrimingJob, TransactionDetailJob]
 
 
 class Conductor:
@@ -66,6 +86,8 @@ class Conductor:
         self.selected_block_numbers = set()
         self.known_transactions = set()
         self.selected_transactions = set()
+        # self.known_primed_blocks = set()
+        self.selected_blocks_to_prime = set()
         self.jobs = []
 
         self.consumer_model = ConsumerModel(DSN)
@@ -78,17 +100,22 @@ class Conductor:
 
         self.status = True
 
-    def _process_block_nums(self, blocknums):
-        if not blocknums or len(blocknums) < 1:
+    def _process_block_meta(self, block_meta):
+        if not block_meta or len(block_meta) < 1:
             return
 
         log.info('Processing block numbers from DB...')
 
+        blocknums = [b[0] for b in block_meta]
+        blocknums_primed = [b[0] for b in block_meta if b[1]]
+
         self.known_block_numbers.update(blocknums)
+        # self.known_primed_blocks.update(blocknums_primed)
 
         loaded = len(blocknums)
+        loaded_primed = len(blocknums_primed)
 
-        log.debug('Loaded {} block numbers'.format(loaded))
+        log.debug('Loaded {} block numbers ({} primed)'.format(loaded, loaded_primed))
 
         return loaded > 0
 
@@ -113,13 +140,14 @@ class Conductor:
 
                 log.debug('Loading blocks {}-{}'.format(start, end))
 
-                block_numbers = self.block_model.get_block_numbers(
+                block_meta = self.block_model.get_block_meta(
                     start=start,
                     end=end,
                 )
 
-                if not self._process_block_nums(block_numbers):
+                if not self._process_block_meta(block_meta):
                     break
+
         else:
             log.debug("Nothing in DB")
             self.latest_in_db = 0
@@ -195,10 +223,27 @@ class Conductor:
                 # TODO: Don't make this request pointless.
                 self.latest_on_chain = self.web3.eth.blockNumber
 
-                log.warning('No blocks available to add to job.  Updating to block {}'.format(self.latest_on_chain))
+                log.warning(
+                    'No blocks available to add to job.  Updating to block '
+                    '{}'.format(
+                        self.latest_on_chain
+                    )
+                )
 
-        elif worker_type == WorkerType.TRANSACTION:
-            job = TransactionJob(consumer_uuid=uuid, transactions=[])
+        elif worker_type == WorkerType.TX_PRIME:
+            job = TransactionPrimingJob(consumer_uuid=uuid, block_numbers=[])
+
+            block_numbers = self.block_model.get_unprimed_blocks(
+                limit=floor(self.batch_size / TX_BATCH_DIVISOR),
+                exclude=self.selected_blocks_to_prime,
+            )
+
+            job.block_numbers = block_numbers
+
+            self.selected_blocks_to_prime.update(job.block_numbers)
+
+        elif worker_type == WorkerType.TX_DETAIL:
+            job = TransactionDetailJob(consumer_uuid=uuid, transactions=[])
 
             transaction_pool = self.tx_model.get_random_dirty(
                 limit=self.batch_size * 2
@@ -239,7 +284,27 @@ class Conductor:
                     log.warning('verify of block {} failed'.format(block_number))
                     return (valid, errors)
 
-        elif isinstance(job, TransactionJob):
+        elif isinstance(job, TransactionPrimingJob):
+            log.debug('Verifying transcation priming job...')
+
+            if not job.block_numbers:
+                log.error('Job missing block numbers, probably an error')
+                return (False, ["Job missing block numbers"])
+
+            for block_no in job.block_numbers:
+                valid, errors = self.block_model.validate_block_primed(
+                    block_no
+                )
+
+                if valid is not True:
+                    return (valid, errors)
+
+            # So our exlusion list doesn't grow infinitely, move blocks from
+            # selected to known.
+            # self.known_primed_blocks.update(job.block_numbers)
+            self.selected_blocks_to_prime.difference_update(job.block_numbers)
+
+        elif isinstance(job, TransactionDetailJob):
             log.debug('Verifying transcation job...')
 
             if not job.transactions:
@@ -247,7 +312,10 @@ class Conductor:
                 return (False, ["Job missing transactions"])
 
             for tx_hash in job.transactions:
-                return self.tx_model.validate_transaction(tx_hash)
+                valid, errors = self.tx_model.validate_transaction(tx_hash)
+
+                if valid is not True:
+                    return (valid, errors)
 
         else:
             log.warning('Unknown job type')

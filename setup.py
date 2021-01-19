@@ -60,6 +60,7 @@ setup(
             'blocksapi = blocks:api',
             'conductor = blocks.cli:start_conductor',
             'blockconsumer = blocks.cli:start_block_consumer',
+            'txprimer = blocks.cli:start_transaction_primer',
             'txconsumer = blocks.cli:start_transaction_consumer',
             'banalysis = blocks.cli:analysis',
         ]

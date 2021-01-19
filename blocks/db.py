@@ -55,7 +55,8 @@ class BlockModel(RawlBase):
             dsn,
             table_name='block',
             columns=['block_number', 'block_timestamp', 'difficulty', 'hash',
-                     'miner', 'gas_used', 'gas_limit', 'nonce', 'size'],
+                     'miner', 'gas_used', 'gas_limit', 'nonce', 'size',
+                     'primed'],
             pk_name='block_number'
         )
 
@@ -108,6 +109,21 @@ class BlockModel(RawlBase):
         else:
             return []
 
+    def get_block_meta(self, start=0, end=1000000) -> List[int]:
+        """ Get meta for block numbers from the DB within the given range """
+
+        res = self.query(
+            "SELECT block_number, primed FROM block "
+            "WHERE block_number >= {} and block_number < {};",
+            start,
+            end
+        )
+
+        if res:
+            return res
+        else:
+            return []
+
     def get_blocks(self, start=0, end=1000000) -> List[int]:
         """ Get blocks from the DB within the given range """
 
@@ -115,6 +131,38 @@ class BlockModel(RawlBase):
             "SELECT {} FROM block "
             "WHERE block_number >= {} and block_number < {};",
             self.columns, start, end)
+
+    def get_unprimed_blocks(self, limit=50, exclude=[]) -> List[int]:
+        """ Get blocks that are unprimed """
+        exclusion = ""
+
+        if len(exclude) > 0:
+            exclusion = "AND block_number NOT IN ({}) ".format(
+                ",".join(map(str, exclude))
+            )
+
+        return [
+            x[0]
+            for x in self.query(
+                "SELECT block_number FROM block "
+                "WHERE primed = false "
+                + exclusion +
+                "ORDER BY block_number DESC "
+                "LIMIT {};",
+                limit
+            )
+        ]
+
+    def validate_block_primed(self, block_number) -> Tuple[bool, List[str]]:
+        """ Validate that a block has been marked as primed """
+        blocks = self.select(
+            "SELECT {} FROM block WHERE block_number = {};",
+            ['block_number', 'primed'], block_number)
+
+        validated = blocks[0][1]
+        errors = ['Not marked primed'] if not validated else []
+
+        return validated, errors
 
     def validate_block(self, block_number) -> Tuple[bool, List[str]]:
         """ Validate that a block number exists and that its values generally

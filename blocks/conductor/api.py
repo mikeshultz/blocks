@@ -79,7 +79,9 @@ def job_request():
             WorkerType.from_string(req_obj['type']),
             req_obj['uuid']
         )
-        return response_ok(job.to_dict())
+
+        if job:
+            return response_ok(job.to_dict())
 
     return response_error()
 
