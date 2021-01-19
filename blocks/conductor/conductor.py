@@ -86,7 +86,7 @@ class Conductor:
         self.selected_block_numbers = set()
         self.known_transactions = set()
         self.selected_transactions = set()
-        self.known_primed_blocks = set()
+        # self.known_primed_blocks = set()
         self.selected_blocks_to_prime = set()
         self.jobs = []
 
@@ -110,7 +110,7 @@ class Conductor:
         blocknums_primed = [b[0] for b in block_meta if b[1]]
 
         self.known_block_numbers.update(blocknums)
-        self.known_primed_blocks.update(blocknums_primed)
+        # self.known_primed_blocks.update(blocknums_primed)
 
         loaded = len(blocknums)
         loaded_primed = len(blocknums_primed)
@@ -301,7 +301,7 @@ class Conductor:
 
             # So our exlusion list doesn't grow infinitely, move blocks from
             # selected to known.
-            self.known_primed_blocks.update(job.block_numbers)
+            # self.known_primed_blocks.update(job.block_numbers)
             self.selected_blocks_to_prime.difference_update(job.block_numbers)
 
         elif isinstance(job, TransactionDetailJob):
