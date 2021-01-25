@@ -121,12 +121,9 @@ class Conductor:
 
     def get_meta(self):
         """ Populate some things we'll need later """
-        print('get_meta|get_meta|get_meta|get_meta|get_meta')
         res = self.block_model.get_latest()
 
         if res:
-            log.debug("Latest in DB: %s", res)
-
             self.latest_in_db = res
             self.latest_on_chain = self.web3.eth.blockNumber
 
@@ -165,14 +162,18 @@ class Conductor:
             'active': True
         })
 
+        log.info('New consumer: {} {}: {}:{}'.format(type, name, host, port))
+
         return uuid
 
     def ping(self, uuid):
         assert uuid is not None
         self.consumer_model.ping(uuid)
+        log.debug('Ping from consumer {}'.format(uuid))
 
     def remove_consumer(self, uuid):
         self.consumer_model.deactivate(uuid)
+        log.debug('Dropping consumer {}'.format(uuid))
 
     def get_job(self, uuid):
         """ Get an existing job for a client """
@@ -276,7 +277,7 @@ class Conductor:
             return (False, ["Invalid job UUID"])
 
         if isinstance(job, BlockJob):
-            log.debug('Verifying block job...')
+            log.debug('{}: Verifying block job...'.format(job_uuid))
 
             for block_number in job.block_numbers:
                 valid, errors = self.block_model.validate_block(block_number)
@@ -285,10 +286,14 @@ class Conductor:
                     return (valid, errors)
 
         elif isinstance(job, TransactionPrimingJob):
-            log.debug('Verifying transcation priming job...')
+            log.debug('{}: Verifying transcation priming job...'.format(job_uuid))
 
             if not job.block_numbers:
-                log.error('Job missing block numbers, probably an error')
+                log.error(
+                    '{}: Job missing block numbers, probably an error'.format(
+                        job_uuid
+                    )
+                )
                 return (False, ["Job missing block numbers"])
 
             for block_no in job.block_numbers:
@@ -305,10 +310,14 @@ class Conductor:
             self.selected_blocks_to_prime.difference_update(job.block_numbers)
 
         elif isinstance(job, TransactionDetailJob):
-            log.debug('Verifying transcation job...')
+            log.debug('{}: Verifying transcation job...'.format(job_uuid))
 
             if not job.transactions:
-                log.error('Job missing transactions, probably an error')
+                log.error(
+                    '{}: Job missing transactions, probably an error'.format(
+                        job_uuid
+                    )
+                )
                 return (False, ["Job missing transactions"])
 
             for tx_hash in job.transactions:
@@ -318,11 +327,11 @@ class Conductor:
                     return (valid, errors)
 
         else:
-            log.warning('Unknown job type')
+            log.warning('{}: Unknown job type'.format(job_uuid))
             return (False, ["Unknown job type"])
 
         self.del_job(job_uuid)
 
-        log.debug('Verification succeeded!')
+        log.debug('{}: Verification succeeded!'.format(job_uuid))
 
         return (True, [])
